@@ -114,7 +114,7 @@ printf(
 					<a class="magazine-category-feature__card-link" href="<?php echo esc_url( $card_link ); ?>">
 						<?php echo magazine_category_feature_media_html( $card, 'card', $attributes ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper escapes. ?>
 						<div class="magazine-category-feature__card-body">
-							<?php if ( $show_label ) : ?>
+							<?php if ($show_label  &&  '' === $sponsored) : ?>
 								<p class="magazine-category-feature__label"><?php echo esc_html( $term->name ); ?></p>
 							<?php endif; ?>
 							<h3 class="magazine-category-feature__card-title"><?php echo esc_html( get_the_title( $card ) ); ?></h3>

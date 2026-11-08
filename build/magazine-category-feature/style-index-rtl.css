@@ -136,15 +136,6 @@
   position: relative;
 }
 
-.magazine-category-feature__rows::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  left: 0;
-  bottom: 0;
-  border-bottom: 1px solid var(--magazine-category-feature-rule, #e6e6e6);
-}
-
 .magazine-category-feature__card {
   position: relative;
   min-width: 0;
