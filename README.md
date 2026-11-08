@@ -2,8 +2,8 @@
 
 A standalone Gutenberg block for magazine landing pages. An editor picks a category. The block shows that category’s newest post as a feature, then the next four as cards. Publishing a new article updates the block. Nobody has to edit the page.
 
-![Magazine Category Feature block on desktop](docs/screenshot-desktop.png)
-![Magazine Category Feature block on mobile](docs/screenshot-mobile.png)
+![Magazine Category Feature block on desktop](docs/desktop-screenshot.png)
+![Magazine Category Feature block on mobile](docs/mobile-screenshot.png)
 
 The plugin folder is `magazine-category-feature`. Do not rename it to `category-feature`. WordPress.org already has a different plugin in that folder, Featured Category Widget. WordPress matches updates by folder name, so wp-admin will offer an update that replaces this plugin with that one.
 
