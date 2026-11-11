@@ -4,13 +4,13 @@
 
 The homepage HTML is the cache that matters. At two million views a day, CloudFront and WP Engine’s page cache answer almost every request. PHP, and therefore this block’s query, does not run. A fresh query inside the block cannot update a page that is served from the edge.
 
-The block stays current because a publish tells cache to drop affected landing-page URLs. `includes/invalidation.php` runs on save, trash, untrash, and delete. It remembers the categories a post had before the save, so moving a story from Gardening to News clears both lists. A lookup table written on content save maps category ids to pages/posts/templates that use this block, so publish-time invalidation reads that table instead of scanning `wp_posts.post_content`. From that mapping it purges matching page/post permalinks, and for template/template-part usage it includes home/front/blog URLs (extendable via filter). It then calls WP Engine’s per-post purge when `wpe_purge_post_cache` or `WpeCommon::purge_varnish_cache` exists. The same URL list is passed to the `magazine_category_feature_purge_urls` action, which is where a CloudFront invalidation belongs. CloudFront keeps old HTML until those paths are invalidated.
+The block stays current because a publish tells cache to drop affected landing-page URLs. `includes/invalidation.php` runs on save, update, trash, untrash, and delete. It remembers the categories a post had before the save, so moving a story from Gardening to News clears both lists. A lookup table written on content save maps category ids to pages and posts that use this block, so publish-time invalidation reads that table instead of scanning `wp_posts.post_content`. From that mapping it purges those page and post permalinks. Templates and template parts are not tracked, because they have no public URL of their own. It then calls WP Engine’s per-post purge when `wpe_purge_post_cache` or `WpeCommon::purge_varnish_cache` exists. The same URL list is passed to the `magazine_category_feature_purge_urls` action, which is where a CloudFront invalidation belongs. CloudFront keeps old HTML until those paths are invalidated.
 
 The query itself is cached one level down, for the requests that do reach PHP. `magazine_category_feature_get_posts()` stores five post IDs in the object cache under `magazine-category-feature` / `cat_{id}`. The current TTL is one hour; that value is a tuning knob and can be adjusted to match production requirements. Titles and images are loaded after that, so they still come from WordPress’s own post cache, which core already clears on save. The ID list is what would go stale when a new article should enter the five. The save hook deletes it. The TTL is only a backstop for a write that skipped the hook, such as a raw SQL import.
 
 The query is already small: five published posts, sticky posts ignored, and term-cache work reduced. Caching IDs is there so a cache miss is cheap, not because the SQL is expensive. I would not also cache the rendered HTML in a transient. That second copy goes stale on its own schedule and fights the page cache.
 
-A lookup table stores content object id, object type, and category id when block content is saved. Purge reads this table directly, so publish-time invalidation does not scan `wp_posts.post_content`. Template and template-part rows purge home/front/blog URLs by default, and can be extended with the `magazine_category_feature_template_part_urls` filter.
+A lookup table stores content object id, object type, and category id when a page or post containing the block is saved. Purge reads this table directly, so publish-time invalidation does not scan `wp_posts.post_content`. Only those page and post permalinks are purged.
 
 Local Docker has no persistent object cache and no WP Engine, so the purge functions no-op and the ID cache dies at the end of the request. That is expected. It is not evidence that production would query on every view.
 
@@ -52,7 +52,7 @@ A change only one brand wants should stay in that brand’s theme (for example t
 
 ## 6. Next steps
 
-I would add automated tests around lookup-table writes and purge targeting (including template/template-part coverage), plus logging around which URLs/categories were purged on publish. That protects the invalidation behavior as this plugin evolves across fifteen homepages.
+I would add automated tests around lookup-table writes and purge targeting for pages and posts, plus logging around which URLs/categories were purged on publish. That protects the invalidation behavior as this plugin evolves across fifteen homepages.
 
 I would add field Core Web Vitals for the landing template before calling the block done, and I would check that the hero remains the LCP element once the real ad script is hooked in. The lab run will not show that.
 

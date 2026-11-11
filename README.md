@@ -5,7 +5,6 @@ A standalone Gutenberg block for magazine landing pages. An editor picks a categ
 ![Magazine Category Feature block on desktop](docs/desktop-screenshot.png)
 ![Magazine Category Feature block on mobile](docs/mobile-screenshot.png)
 
-The plugin folder is `magazine-category-feature`. Do not rename it to `category-feature`. WordPress.org already has a different plugin in that folder, Featured Category Widget. WordPress matches updates by folder name, so wp-admin will offer an update that replaces this plugin with that one.
 
 ## Requirements
 
@@ -20,8 +19,7 @@ The plugin folder is `magazine-category-feature`. Do not rename it to `category-
 1. Download the plugin from [https://github.com/vkwins/magazine-category-feature](https://github.com/vkwins/magazine-category-feature). Use **Code → Download ZIP**, or clone the repository.
 2. Copy the downloaded folder into `wp-content/plugins/` so the plugin lives at `wp-content/plugins/magazine-category-feature`. GitHub’s ZIP adds the branch name, so rename `magazine-category-feature-main` to `magazine-category-feature`.
 3. In WordPress admin, open Plugins and activate **Magazine Category Feature**.
-4. If WordPress still offers an update for a plugin called Featured Category Widget, that is the other plugin. Do not update it over this one. Delete that copy if it is installed.
-5. Edit a page, add the **Magazine Category Feature** block, and choose a category in the sidebar.
+4. Edit a page, add the **Magazine Category Feature** block, and choose a category in the sidebar.
 
 To rebuild after changing `src/`:
 
@@ -120,8 +118,8 @@ That creates Gardening (six posts, one card without an image, one sponsored card
 ## Known limits
 
 - The category dropdown asks for 100 categories. A site with more needs a searchable control.
-- The page-cache purge uses a lookup table written on content save. Template/template-part usage purges home/front/blog URLs by default, and can be extended with the `magazine_category_feature_template_part_urls` filter.
-- Without a persistent object cache, the five-minute ID cache lasts for one request only. Publishing still renders fresh posts on an uncached page, because the query itself is not stale.
+- The page-cache purge uses a lookup table written on content save.
+- Without a persistent object cache, the one hour ID cache lasts for one request only. Publishing still renders fresh posts on an uncached page, because the query itself is not stale.
 - Card headlines are visually clamped at four lines. The full headline is still in the HTML.
 - The ad slot is a hook, `magazine_category_feature_ad_slot`. Nothing is hooked by default, so the public page has no empty gap.
 - Re-running the seed script does not delete the sixth gardening post or the empty Homes category. It updates them in place.
@@ -130,6 +128,7 @@ That creates Gardening (six posts, one card without an image, one sponsored card
 ## Possible later work
 
 - Real-user Core Web Vitals in the field, split by template, which a lab Lighthouse run cannot give you.
+- Preload cache
 
 ## AI use
 
@@ -144,5 +143,5 @@ Changes after scaffolding:
 - Initial cleanup removed extra generated lines/files that were not needed for this plugin shape (for example, unnecessary scaffold output such as unused save/view paths), so the codebase started from a smaller baseline.
 - AI-assisted work built the dynamic block architecture: `save: () => null`, shared PHP rendering for editor and front end, include-file split, query tuning, sponsored meta flow, styling/performance refinements, and docs/asset updates.
 - AI-assisted work simplified card rendering by removing PHP row chunking in `render.php`, switching to a single-loop card output, and moving row-divider behavior into CSS pseudo-elements while keeping the same desktop/mobile layout.
-- AI-assisted work replaced publish-time `post_content` scanning with lookup-table targeting for purge invalidation, including template/template-part URL handling, and removed the legacy scan fallback path for first-time production rollout.
+- AI-assisted work replaced publish-time `post_content` scanning with lookup-table targeting for purge invalidation of pages and posts that contain the block, and removed the legacy scan fallback path for first-time production rollout.
 - AI-assisted work also included targeted cleanup/refinement changes: removed unnecessary query customization hooks/flags, adjusted cache TTL constant usage, and rebuilt generated block assets after source changes.

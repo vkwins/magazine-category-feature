@@ -67,10 +67,22 @@ function magazine_category_feature_lookup_table_name(): string {
 }
 
 /**
+ * Post types whose own permalink can be purged.
+ *
+ * Templates and template parts are omitted. They have no public URL, and the
+ * pages that render them are not known from the template alone.
+ *
+ * @return string[]
+ */
+function magazine_category_feature_lookup_post_types(): array {
+	return array( 'page', 'post' );
+}
+
+/**
  * Seeds the lookup table from existing block content.
  */
 function magazine_category_feature_backfill_lookup_table(): void {
-	$supported_types = array( 'page', 'post', 'wp_template', 'wp_template_part' );
+	$supported_types = magazine_category_feature_lookup_post_types();
 	$query           = new WP_Query(
 		array(
 			'post_type'              => $supported_types,
@@ -106,8 +118,7 @@ function magazine_category_feature_refresh_lookup_for_content( int $post_id, WP_
 		return;
 	}
 
-	$supported_types = array( 'page', 'post', 'wp_template', 'wp_template_part' );
-	if ( ! in_array( $post->post_type, $supported_types, true ) ) {
+	if ( ! in_array( $post->post_type, magazine_category_feature_lookup_post_types(), true ) ) {
 		return;
 	}
 
@@ -133,7 +144,7 @@ function magazine_category_feature_delete_lookup_for_content( int $post_id ): vo
  * Replaces all lookup rows for one content object.
  *
  * @param int    $object_id   Post ID that stores block markup.
- * @param string $object_type Content type, such as page or wp_template_part.
+ * @param string $object_type Content type, page or post.
  * @param int[]  $category_ids Category IDs used by this object's block instances.
  */
 function magazine_category_feature_replace_lookup_rows( int $object_id, string $object_type, array $category_ids ): void {
@@ -290,8 +301,7 @@ function magazine_category_feature_forget_categories( array $category_ids ): voi
 /**
  * Purges published content that contains this block for the given categories.
  *
- * Targeting comes from the lookup table written when content is saved.
- * Template and template-part usage resolves to front-page URLs.
+ * Targeting comes from the lookup table written when a page or post is saved.
  *
  * @param int[] $category_ids Category term IDs.
  */
@@ -301,9 +311,8 @@ function magazine_category_feature_purge_pages_for_categories( array $category_i
 		return;
 	}
 
-	$lookup = magazine_category_feature_lookup_rows_for_categories( $category_ids );
-	$post_ids = $lookup['post_ids'];
-	$urls     = $lookup['urls'];
+	$post_ids = magazine_category_feature_lookup_rows_for_categories( $category_ids );
+	$urls     = array();
 
 	foreach ( $post_ids as $post_id ) {
 		$permalink = get_permalink( $post_id );
@@ -329,85 +338,36 @@ function magazine_category_feature_purge_pages_for_categories( array $category_i
 }
 
 /**
- * Returns object IDs and URLs from the lookup table for categories.
+ * Returns page and post IDs from the lookup table for categories.
+ *
+ * Template rows already stored in the table are ignored. They have no permalink
+ * to purge.
  *
  * @param int[] $category_ids Category IDs.
- * @return array{post_ids:int[],urls:string[]}
+ * @return int[]
  */
 function magazine_category_feature_lookup_rows_for_categories( array $category_ids ): array {
 	global $wpdb;
 
-	$table_name = magazine_category_feature_lookup_table_name();
-	$in         = implode( ',', array_fill( 0, count( $category_ids ), '%d' ) );
-	$sql        = "SELECT object_id, object_type FROM {$table_name} WHERE category_id IN ({$in})";
+	$table_name      = magazine_category_feature_lookup_table_name();
+	$supported_types = magazine_category_feature_lookup_post_types();
+	$in              = implode( ',', array_fill( 0, count( $category_ids ), '%d' ) );
+	$type_in         = implode( ',', array_fill( 0, count( $supported_types ), '%s' ) );
+	$sql             = "SELECT object_id FROM {$table_name} WHERE category_id IN ({$in}) AND object_type IN ({$type_in})";
 
-	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are generated from count( $category_ids ).
-	$rows = $wpdb->get_results( $wpdb->prepare( $sql, $category_ids ), ARRAY_A );
+	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are generated from the category and post-type counts.
+	$rows = $wpdb->get_results( $wpdb->prepare( $sql, array_merge( $category_ids, $supported_types ) ), ARRAY_A );
 
-	$post_ids          = array();
-	$has_template_part = false;
-
+	$post_ids = array();
 	foreach ( $rows as $row ) {
-		$object_id   = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
-		$object_type = isset( $row['object_type'] ) ? (string) $row['object_type'] : '';
-
+		$object_id = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
 		if ( $object_id <= 0 ) {
 			continue;
 		}
-
-		if ( 'wp_template_part' === $object_type || 'wp_template' === $object_type ) {
-			$has_template_part = true;
-			continue;
-		}
-
 		$post_ids[] = $object_id;
 	}
 
-	$post_ids = array_values( array_unique( $post_ids ) );
-	$urls     = array();
-
-	if ( $has_template_part ) {
-		$urls = magazine_category_feature_template_part_urls();
-	}
-
-	return array(
-		'post_ids' => $post_ids,
-		'urls'     => $urls,
-	);
-}
-
-/**
- * URLs to purge when a block is sourced from templates/template parts.
- *
- * @return string[]
- */
-function magazine_category_feature_template_part_urls(): array {
-	$urls = array( home_url( '/' ) );
-
-	$front_page_id = (int) get_option( 'page_on_front' );
-	if ( $front_page_id > 0 ) {
-		$front_permalink = get_permalink( $front_page_id );
-		if ( is_string( $front_permalink ) && '' !== $front_permalink ) {
-			$urls[] = $front_permalink;
-		}
-	}
-
-	$posts_page_id = (int) get_option( 'page_for_posts' );
-	if ( $posts_page_id > 0 ) {
-		$posts_permalink = get_permalink( $posts_page_id );
-		if ( is_string( $posts_permalink ) && '' !== $posts_permalink ) {
-			$urls[] = $posts_permalink;
-		}
-	}
-
-	/**
-	 * Lets integrators add template-driven URLs (for example, custom landing pages).
-	 *
-	 * @param string[] $urls Default URLs derived from site front settings.
-	 */
-	$urls = apply_filters( 'magazine_category_feature_template_part_urls', $urls );
-
-	return array_values( array_unique( array_filter( array_map( 'strval', (array) $urls ) ) ) );
+	return array_values( array_unique( $post_ids ) );
 }
 
 /**
